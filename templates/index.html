@@ -1,0 +1,222 @@
+{% load static %}
+
+<!DOCTYPE html>
+<!-- Coding By CodingNepal - youtube.com/codingnepal -->
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Drawing App JavaScript | CodingNepal</title>
+    <link rel="stylesheet" href="{% static '' %}style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="{% static '' %}script.js" defer></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <style>
+      body{
+        background: #4A98F7;
+      }
+      .result {
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        color: white;
+        margin: 5rem 0;
+      }
+
+      .result h1{
+        margin: 1rem 0 3rem 0;
+        border-bottom: 1px solid gray;
+      }
+
+      .result-pic{
+        width: 100%;
+        height: 70vh;
+        align-items: center;
+        justify-content: center;
+        display: flex;
+        gap: 20px;
+      }
+
+      .orginal{
+        max-width: 45%;
+      }
+
+      .pic{
+        border: 10px solid white;
+        border-radius: 5px;
+      }
+
+      .pic img{
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <section class="tools-board">
+          <div class="row">
+            <label class="title">Shapes</label>
+            <ul class="options">
+              <li class="option tool" id="rectangle">
+                <img src="{% static '' %}icons/rectangle.svg" alt="">
+                <span>Rectangle</span>
+              </li>
+              <li class="option tool" id="circle">
+                <img src="{% static '' %}icons/circle.svg" alt="">
+                <span>Circle</span>
+              </li>
+              <li class="option tool" id="triangle">
+                <img src="{% static '' %}icons/triangle.svg" alt="">
+                <span>Triangle</span>
+              </li>
+              <li class="option">
+                <input type="checkbox" id="fill-color">
+                <label for="fill-color">Fill color</label>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <label class="title">Options</label>
+            <ul class="options">
+              <li class="option active tool" id="brush">
+                <img src="{% static '' %}icons/brush.svg" alt="">
+                <span>Brush</span>
+              </li>
+              <li class="option tool" id="eraser">
+                <img src="{% static '' %}icons/eraser.svg" alt="">
+                <span>Eraser</span>
+              </li>
+              <li class="option" id="undo-action">
+                <img src="{% static '' %}icons/undo.png" alt="" style="transform: scale(0.8);">
+                <span>Undo</span>
+              </li>
+              <li class="option">
+                <input type="range" id="size-slider" min="1" max="30" value="5">
+              </li>
+            </ul>
+          </div>
+          <div class="row colors">
+            <label class="title">Colors</label>
+            <ul class="options">
+              <li class="option"></li>
+              <li class="option selected"></li>
+              <li class="option"></li>
+              <li class="option"></li>
+              <li class="option">
+                <input type="color" id="color-picker" value="#4A98F7">
+              </li>
+            </ul>
+          </div>
+          <div class="row buttons">
+            <div style="display: flex; gap: 10px">
+              <button class="clear-canvas">Clear Canvas</button>
+              <button class="save-img">Save As Image</button>
+            </div>
+            <input type="text" id="img-prompt" name="prompt" placeholder="Image prompt"
+            style="padding: 11px 2px;margin-bottom: 13px;">
+            <button class="generate-img">Generate Image</button>
+          </div>
+        </section>
+        <section class="drawing-board">
+          <canvas></canvas>
+        </section>
+      </div>
+    </div>
+
+    <div class="result">
+
+      
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      function notiFy(msg, action='success') {
+        var bg = 'linear-gradient(to right, #00b09b, #96c93d)';
+        if (action == 'success') {
+          bg = 'linear-gradient(to right, #00b09b, #96c93d)';
+        }else if(action == 'error'){
+          bg = 'linear-gradient(to right, #f12711, #f5af19)';
+        }
+        Toastify({
+          text: msg,
+          duration: 3000,
+          close: true,
+          gravity: "top", // `top` or `bottom`
+          position: "center", // `left`, `center` or `right`
+          stopOnFocus: true, // Prevents dismissing of toast on hover
+          style: {
+            background: bg,
+          },
+          onClick: function(){} // Callback after click
+        }).showToast();
+      }
+
+
+      $('.generate-img').click(function(){
+        if (promptCheck()){
+          var image = canvas.toDataURL("image/png");
+          var csrf_token = '{{ csrf_token }}';
+          notiFy("Generating image...");
+          $.ajax({
+            type: "POST",
+            url: "/api/upload/",
+            data: {
+              image: image,
+              csrfmiddlewaretoken: csrf_token,
+            },
+            success: function(data){
+              if (data['error']) {
+                notiFy(data['error'], 'error');
+              } else {
+                notiFy("Image generated ...");
+                const prompt = $('#img-prompt').val().trim();
+                $.ajax({
+                  type: "GET",
+                  url: "/api/generate/"+data['drawing'],
+                  data: {'prompt': prompt},
+                  success: function(data){
+                    if (data.error) {
+                      notiFy("Error generating image", 'error');
+                    } else {
+                      notiFy("Image generated successfully");
+                      $('.result').append(`
+                      <div class="result-pic">
+                        <section class="orginal pic">
+                          <img src="${image}" alt="">
+                        </section>
+                        
+                        <section class="generated pic">
+                          <img src="${data.image[0]}" alt="">
+                        </section>
+                      </div>
+                      <h1>${prompt}</h1>
+                      `);
+                      $(document).scrollTop($(document).height());
+                    }
+                  }
+                })
+              }
+            },
+          });
+        }
+      });
+      function promptCheck(){
+        const prompt = $('#img-prompt').val().trim();
+        if (prompt === '' || prompt === null) {
+          $('#img-prompt').css('border', '2px solid red');
+          return false;
+        } else {
+          $('#img-prompt').css('border', '2px solid #ced4da');
+          return true;
+        }
+      }
+    </script>
+    
+  </body>
+</html>
